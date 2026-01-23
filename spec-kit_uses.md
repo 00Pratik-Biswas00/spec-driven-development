@@ -213,3 +213,19 @@ The Plan is then broken down into concrete, ADK-specific tasks that an engineer 
     4.  Implement the webhook handler for the `OrderPizza` scene in `webhooks/main.js` using the `@google/assistant-sdk` library.
     5.  Write unit tests for the fulfillment logic to validate order processing.
     6.  Deploy the webhook to Google Cloud Functions.
+
+
+## 9. Optional Commands
+
+Additional commands for enhanced quality and validation:
+
+| Command               | Description                                                                                                                              |
+| :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `/speckit.clarify`    | Clarify underspecified areas in the Specification. This is recommended before proceeding to `/speckit.plan` (formerly `/quizme`).        |
+| `/speckit.analyze`    | Perform cross-artifact consistency and coverage analysis. This command is typically run after `/speckit.tasks` and before `/speckit.implement` to ensure alignment. |
+| `/speckit.checklist`  | Generate custom quality checklists that validate requirements completeness, clarity, and consistency, effectively serving as "unit tests for English." |
+
+## Documentations
+
+1. https://github.com/github/spec-kit?tab=readme-ov-file
+2. https://github.com/github/spec-kit/blob/main/spec-driven.md
