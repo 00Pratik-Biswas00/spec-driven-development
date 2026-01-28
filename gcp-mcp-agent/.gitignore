@@ -1,0 +1,8 @@
+.gemini/
+.specify/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+*.egg-info/
