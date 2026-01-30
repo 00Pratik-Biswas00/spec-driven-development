@@ -1,0 +1,161 @@
+description = "Execute the ADK agent implementation plan by processing and executing all tasks defined in tasks.md"
+
+prompt = """
+---
+description: Execute the ADK agent implementation plan by processing and executing all tasks defined in tasks.md
+---
+
+## User Input
+
+```text
+$ARGUMENTS
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\\''m Groot' (or double-quote if possible: "I'm Groot").
+
+2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
+   - Scan all checklist files in the checklists/ directory
+   - For each checklist, count:
+     - Total items: All lines matching `- [ ]` or `- [X]` or `- [x]`
+     - Completed items: Lines matching `- [X]` or `- [x]`
+     - Incomplete items: Lines matching `- [ ]`
+   - Create a status table:
+
+     ```text
+     | Checklist | Total | Completed | Incomplete | Status |
+     |-----------|-------|-----------|------------|--------|
+     | agent-design.md | 12 | 12 | 0 | ✓ PASS |
+     | tools.md | 8 | 5 | 3 | ✗ FAIL |
+     | evaluation.md | 6 | 6 | 0 | ✓ PASS |
+     ```
+
+   - Calculate overall status:
+     - **PASS**: All checklists have 0 incomplete items
+     - **FAIL**: One or more checklists have incomplete items
+
+   - **If any checklist is incomplete**:
+     - Display the table with incomplete item counts
+     - **STOP** and ask: "Some checklists are incomplete. Do you want to proceed with implementation anyway? (yes/no)"
+     - Wait for user response before continuing
+     - If user says "no" or "wait" or "stop", halt execution
+     - If user says "yes" or "proceed" or "continue", proceed to step 3
+
+   - **If all checklists are complete**:
+     - Display the table showing all checklists passed
+     - Automatically proceed to step 3
+
+3. Load and analyze the ADK agent implementation context:
+   - **REQUIRED**: Read tasks.md for the complete task list and execution plan
+   - **REQUIRED**: Read plan.md for ADK architecture, agent types, and tool specifications
+   - **IF EXISTS**: Read agent-architecture.md for detailed agent design
+   - **IF EXISTS**: Read tool-specifications.md for tool implementations
+   - **IF EXISTS**: Read prompts/ directory for agent instructions
+   - **IF EXISTS**: Read research.md for ADK patterns and decisions
+   - **IF EXISTS**: Read spec.md for interaction scenarios
+
+4. **ADK Project Setup Verification**:
+   - **REQUIRED**: Create/verify ignore files based on ADK Python project:
+
+   **Detection & Creation Logic**:
+   - Check if the following command succeeds to determine if the repository is a git repo (create/verify .gitignore if so):
+
+     ```sh
+     git rev-parse --git-dir 2>/dev/null
+     ```
+
+   - Check if Dockerfile* exists or Docker in plan.md → create/verify .dockerignore
+   - Check if .env.example exists → ensure .gitignore excludes .env files
+
+   **ADK Python Project Patterns**:
+   - **Python/ADK**: `__pycache__/`, `*.pyc`, `.venv/`, `venv/`, `dist/`, `*.egg-info/`, `.env`, `.env.*`, `*.log`
+   - **ADK Specific**: `.adk/`, `*.pyc`, `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`
+   - **Universal**: `.DS_Store`, `Thumbs.db`, `*.tmp`, `*.swp`, `.vscode/`, `.idea/`
+
+   **If ignore file already exists**: Verify it contains essential patterns, append missing critical patterns only
+   **If ignore file missing**: Create with full pattern set for ADK Python project
+
+5. Parse tasks.md structure and extract:
+   - **Task phases**: Setup, Foundational, Scenario-based (S1, S2, S3...), Polish
+   - **Task dependencies**: Sequential vs parallel execution rules
+   - **Task details**: ID, description, file paths, parallel markers [P], scenario markers [S1], [S2], etc.
+   - **Execution flow**: Order and dependency requirements
+   - **ADK-specific tasks**: Agent creation, tool implementation, prompt writing, evaluation
+
+6. Execute ADK agent implementation following the task plan:
+   - **Phase-by-phase execution**: Complete each phase before moving to the next
+   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
+   - **Follow TDD approach**: Execute evaluation tests before their corresponding agent implementation (if tests requested)
+   - **File-based coordination**: Tasks affecting the same files must run sequentially
+   - **Validation checkpoints**: Verify each phase completion before proceeding
+   - **Test with adk run**: After each scenario, test agent with `adk run` or `adk web`
+
+7. ADK agent implementation execution rules:
+   - **Setup first**: Initialize ADK project structure, dependencies (requirements.txt), configuration (.env.example)
+   - **Foundational components**: State management, logging, tool infrastructure
+   - **Evaluation tests before implementation**: If evaluation requested, write AgentEvaluator tests first
+   - **Tools before agents**: Implement and test tools before creating agents that use them
+  - **Prompts before agents**: Write agent instructions in prompt.py before creating agents
+   - **Agents implementation**: Create agent.py with proper ADK structure
+   - **Scenario-by-scenario**: Implement one interaction scenario at a time, test independently
+   - **Polish and deployment**: Observability, optimization, deployment scripts
+
+8. ADK-specific implementation guidelines:
+   - **Tool docstrings are CRITICAL**: LLM reads these to decide when to call tools
+   - **State keys must be unique**: Use descriptive names like `user_preferences`, not `data`
+   - **Test each scenario independently**: Use `adk run` to verify agent behavior
+   - **Follow ADK best practices**: Single responsibility, clear instructions, error handling
+   - **Enable observability**: Configure OpenTelemetry, BigQuery Analytics, or AgentOps
+   - **Use appropriate models**: Choose gemini-2.5-flash for speed, gemini-2.5-pro for complex reasoning
+
+9. Progress tracking and error handling:
+   - Report progress after each completed task
+   - Halt execution if any non-parallel task fails
+   - For parallel tasks [P], continue with successful tasks, report failed ones
+   - Provide clear error messages with context for debugging
+   - Suggest next steps if implementation cannot proceed
+   - **IMPORTANT**: For completed tasks, mark the task off as [X] in the tasks file
+   - **Test after each scenario**: Run `adk run` to verify agent works
+
+10. ADK agent validation:
+    - Verify all required tasks are completed
+    - Test agent with `adk run [agent_name]`
+    - Verify agent responds correctly to interaction scenarios
+    - Check tool calls are working (tools are being called and returning results)
+    - Validate state management (state keys are being set and read correctly)
+    - Run evaluation tests (if included) with `pytest eval/`
+    - Verify error handling (agent handles tool failures gracefully)
+    - Check observability (logs and traces are being generated)
+
+11. Completion validation:
+    - All interaction scenarios tested and working
+    - Agent responds appropriately to user inputs
+    - Tools are documented and functioning
+    - State management is working correctly
+    - Error handling is graceful
+    - Evaluation tests pass (if included)
+    - README.md updated with usage instructions
+    - .env.example includes all required variables
+    - Report final status with summary of completed work
+
+## ADK Implementation Checklist
+
+After implementation, verify:
+
+- [ ] Agent structure follows ADK conventions (agent.py, tools/, prompt.py)
+- [ ] All tools have clear docstrings
+- [ ] State keys are unique and descriptive
+- [ ] Agent instructions are specific and actionable
+- [ ] Error handling is implemented in tools
+- [ ] Agent tested with `adk run`
+- [ ] All interaction scenarios work independently
+- [ ] Observability configured (logging, tracing)
+- [ ] README.md has setup and usage instructions
+- [ ] .env.example has all required variables
+- [ ] Dependencies locked in requirements.txt or pyproject.toml
+
+Note: This command assumes a complete ADK agent task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
+"""

@@ -1,0 +1,223 @@
+description = "Execute the ADK agent architecture planning workflow using the plan template to generate design artifacts."
+
+prompt = """
+---
+description: Execute the ADK agent architecture planning workflow using the plan template to generate design artifacts.
+handoffs: 
+  - label: Create Agent Implementation Tasks
+    agent: speckit.tasks
+    prompt: Break the agent plan into implementation tasks
+    send: true
+  - label: Create Agent Checklist
+    agent: speckit.checklist
+    prompt: Create a checklist for the agent implementation...
+---
+
+## User Input
+
+```text
+$ARGUMENTS
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+1. **Setup**: Run `.specify/scripts/bash/setup-plan.sh --json` from repo root and parse JSON for FEATURE_SPEC, IMPL_PLAN, SPECS_DIR, BRANCH. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\\''m Groot' (or double-quote if possible: "I'm Groot").
+
+2. **Load context**: Read FEATURE_SPEC (agent specification) and `.specify/memory/constitution.md` (ADK principles). Load IMPL_PLAN template (already copied).
+
+3. **Execute ADK agent planning workflow**: Follow the structure in IMPL_PLAN template to:
+   - Fill ADK Technical Context (mark unknowns as "NEEDS CLARIFICATION")
+   - Identify agent type (LlmAgent, SequentialAgent, ParallelAgent, LoopAgent, Multi-Agent)
+   - Fill Constitution Check section from ADK constitution
+   - Evaluate gates (ERROR if violations unjustified)
+   - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION, research ADK patterns)
+   - Phase 1: Generate agent-architecture.md, tool-specifications.md, prompts/
+   - Phase 1: Update agent context by running the agent script
+   - Re-evaluate Constitution Check post-design
+
+4. **Stop and report**: Command ends after Phase 1 planning. Report branch, IMPL_PLAN path, and generated artifacts.
+
+## Phases
+
+### Phase 0: Research & ADK Pattern Discovery
+
+1. **Extract unknowns from ADK Technical Context** above:
+   - For each NEEDS CLARIFICATION → research task
+   - For model selection → compare Gemini models (flash vs pro)
+   - For tool requirements → research existing ADK tools and integrations
+   - For architecture → research ADK agent patterns
+
+2. **Generate and dispatch research tasks**:
+
+   ```text
+   For each unknown in ADK Technical Context:
+     Task: "Research {unknown} for ADK agent {agent context}"
+   For model selection:
+     Task: "Compare Gemini models for {use case} - cost vs performance"
+   For tool requirements:
+     Task: "Research ADK tool implementations for {capability}"
+   For architecture:
+     Task: "Research ADK {agent type} patterns for {use case}"
+   ```
+
+3. **Consolidate findings** in `research.md` using format:
+   - Decision: [what was chosen - e.g., "gemini-2.5-flash", "SequentialAgent"]
+   - Rationale: [why chosen - cost, performance, simplicity]
+   - Alternatives considered: [what else evaluated]
+   - ADK Best Practices: [relevant patterns from ADK documentation]
+
+**Output**: research.md with all NEEDS CLARIFICATION resolved and ADK patterns documented
+
+### Phase 1: Agent Architecture & Tool Design
+
+**Prerequisites:** `research.md` complete
+
+1. **Design agent architecture** → `agent-architecture.md`:
+   - Agent type and justification (LlmAgent, Sequential, Parallel, Loop, Multi-Agent)
+   - For multi-agent systems: hierarchy and communication patterns
+   - State flow diagrams showing how data passes between agents
+   - Tool call sequences for each interaction scenario
+   - Error handling strategies
+   - Session management approach
+
+2. **Specify tool implementations** → `tool-specifications.md`:
+   - For each tool from agent spec:
+     - Function signature with type hints
+     - Docstring (CRITICAL - LLM reads this!)
+     - Input/output schemas
+     - Error handling approach
+     - Confirmation requirements (if destructive/sensitive)
+     - Test scenarios
+   - For sub-agents (if multi-agent):
+     - Sub-agent purpose and responsibility
+     - Tools each sub-agent uses
+     - How sub-agent is wrapped (AgentTool)
+
+3. **Write agent prompts** → `prompts/` directory:
+   - Create `prompts/root_agent.txt` with main agent instruction
+   - For multi-agent: Create `prompts/[sub_agent_name].txt` for each sub-agent
+   - Each prompt must include:
+     - Agent persona and role
+     - Clear task description
+     - Tool usage guidelines
+     - Output format requirements
+     - Error handling instructions
+     - State management instructions (if using state)
+
+4. **Agent context update**:
+   - Run `.specify/scripts/bash/update-agent-context.sh gemini`
+   - These scripts detect which AI agent is in use
+   - Update the appropriate agent-specific context file
+   - Add ADK version, models, and architecture patterns
+   - Preserve manual additions between markers
+
+**Output**: agent-architecture.md, tool-specifications.md, prompts/, updated agent context
+
+## ADK-Specific Planning Guidelines
+
+### Agent Type Selection
+
+**LlmAgent** - Choose when:
+- Need intelligent reasoning and dynamic tool selection
+- Conversational interactions with users
+- Complex decision-making based on context
+- Single agent can handle all scenarios
+
+**SequentialAgent** - Choose when:
+- Tasks must execute in specific order
+- Each step depends on previous results
+- Clear pipeline structure (A → B → C)
+- State passing between phases
+
+**ParallelAgent** - Choose when:
+- Tasks are independent
+- Performance is critical
+- Gathering from multiple sources
+- No dependencies between sub-agents
+
+**LoopAgent** - Choose when:
+- Iterative improvement needed
+- Quality threshold to meet
+- Retry with refinement
+- Termination condition exists
+
+**Multi-Agent System** - Choose when:
+- Complex task requiring specialization
+- Different expertise domains
+- Sub-agents have distinct responsibilities
+- Orchestrator coordinates specialists
+
+### Tool Design Principles
+
+**Every tool MUST have**:
+- Clear, descriptive docstring (LLM reads this!)
+- Type hints for all parameters
+- Documented return value
+- Error handling (return errors, don't raise)
+- Test scenarios
+
+**Tool Confirmation**:
+- Require confirmation for destructive operations
+- Require confirmation for external actions (email, API posts)
+- Require confirmation for financial transactions
+- Use `require_confirmation=True` in FunctionTool
+
+### State Management Planning
+
+**Define state keys**:
+- Use unique, descriptive names (e.g., `user_preferences`, not `data`)
+- Document what each key contains
+- Plan state flow between agents
+- Use `output_key` to save agent results
+
+**State flow example**:
+```
+Agent A (output_key="analysis") → state["analysis"] → 
+Agent B (instruction="Process {analysis}") → state["result"]
+```
+
+### Prompt Engineering Strategy
+
+**Effective prompts include**:
+- Clear agent persona ("You are a financial advisor...")
+- Specific task description
+- Tool usage guidelines ("Use the search tool when...")
+- Output format requirements
+- Examples of good responses
+- Error handling instructions
+
+**Avoid**:
+- Vague instructions ("You are a helpful assistant")
+- Ambiguous goals
+- Missing tool guidance
+- No error handling instructions
+
+## Constitution Check (ADK-Specific)
+
+Validate against ADK constitution principles:
+
+1. **Single Responsibility**: Each agent has one clear purpose
+2. **Tool Documentation**: All tools have descriptive docstrings
+3. **State Management**: Unique, descriptive state keys
+4. **Test-First**: Plan includes evaluation strategy
+5. **Observability**: Tracing and logging planned
+6. **Performance**: Appropriate agent types and models chosen
+7. **Error Handling**: Graceful degradation planned
+
+**If violations exist**:
+- Document in "Complexity Tracking" section
+- Provide justification
+- Explain why simpler alternatives don't work
+
+## Key Rules
+
+- Use absolute paths
+- ERROR on gate failures or unresolved clarifications
+- All tools must have docstrings
+- State keys must be unique and descriptive
+- Choose appropriate agent type for the task
+- Plan for observability from the start
+- Consider cost (flash vs pro) vs capability needs
+"""
